@@ -4,12 +4,13 @@ import pytest
 import products
 
 def test_create_normal_product():
-    """Test creating a product with valid details."""
+    """Test creating a product with valid details using properties."""
     product = products.Product("MacBook Air M2", price=1450, quantity=100)
     assert product.name == "MacBook Air M2"
     assert product.price == 1450
     assert product.quantity == 100
-    assert product.is_active() is True
+    # Use the 'active' property instead of is_active() method
+    assert product.active is True
 
 def test_create_product_invalid_details():
     """Test creating a product with invalid details raises ValueError."""
@@ -17,58 +18,78 @@ def test_create_product_invalid_details():
     with pytest.raises(ValueError, match="Product name cannot be empty"):
         products.Product("", price=1450, quantity=100)
 
-    # Test negative price
+    # Test negative price using property setter
     with pytest.raises(ValueError, match="Product price cannot be negative"):
+        # Test setting via __init__ which uses the setter
         products.Product("MacBook Air M2", price=-10, quantity=100)
+        # Optionally, test direct setting if needed (though covered by init)
+        # p = products.Product("Test", 10, 10)
+        # p.price = -10
 
-    # Test negative quantity
-    with pytest.raises(ValueError, match="Product quantity cannot be negative"):
+    # Test negative quantity using property setter
+    # Adjust expected error message to match the one raised by the property setter
+    with pytest.raises(ValueError, match="Quantity cannot be negative."):
+         # Test setting via __init__ which uses the setter
         products.Product("MacBook Air M2", price=1450, quantity=-5)
+        # Optionally, test direct setting if needed
+        # p = products.Product("Test", 10, 10)
+        # p.quantity = -5
 
 def test_product_becomes_inactive_at_zero_quantity():
-    """Test that a product becomes inactive when its quantity reaches 0."""
+    """Test that a product becomes inactive when its quantity reaches 0 using properties."""
     product = products.Product("Test Item", price=10, quantity=1)
-    assert product.is_active() is True
+    # Use 'active' property
+    assert product.active is True
     product.buy(1) # Buy the last item
-    assert product.get_quantity() == 0
-    assert product.is_active() is False # Should now be inactive
+    # Use 'quantity' property
+    assert product.quantity == 0
+    # Use 'active' property
+    assert product.active is False # Should now be inactive
 
 def test_product_purchase_modifies_quantity_and_returns_correct_output():
-    """Test that buying a product updates quantity and returns the total price."""
+    """Test buying updates quantity and returns correct output using properties."""
     product = products.Product("Test Item", price=25, quantity=10)
     purchase_quantity = 3
     expected_total_price = 25 * purchase_quantity
     actual_total_price = product.buy(purchase_quantity)
 
     assert actual_total_price == expected_total_price
-    assert product.get_quantity() == 10 - purchase_quantity
-    assert product.is_active() is True # Should still be active
+    # Use 'quantity' property
+    assert product.quantity == 10 - purchase_quantity
+    # Use 'active' property
+    assert product.active is True # Should still be active
 
 def test_buy_larger_quantity_than_exists_raises_exception():
-    """Test that attempting to buy more quantity than available raises an Exception."""
+    """Test buying more than available raises Exception using properties."""
     product = products.Product("Test Item", price=50, quantity=5)
     with pytest.raises(Exception, match="Not enough stock"):
         product.buy(6) # Try to buy more than available
 
-    # Also test buying from an inactive product (which might happen if quantity was 0)
-    product.set_quantity(0) # Make it inactive
-    assert product.is_active() is False
+    # Also test buying from an inactive product
+    # Use property setter to change quantity, which should update active status
+    product.quantity = 0
+    # Use 'active' property
+    assert product.active is False
     with pytest.raises(Exception, match="product is inactive"):
         product.buy(1)
 
-# Optional: Test setting quantity directly
+# Optional: Test setting quantity directly using property setter
 def test_set_quantity_updates_status():
-    """Test set_quantity updates quantity and active status correctly."""
+    """Test quantity property setter updates quantity and active status."""
     product = products.Product("Another Test", price=5, quantity=10)
-    product.set_quantity(0)
-    assert product.get_quantity() == 0
-    assert product.is_active() is False
+    # Use property setter
+    product.quantity = 0
+    # Use properties for checks
+    assert product.quantity == 0
+    assert product.active is False
 
-    product.set_quantity(5)
-    assert product.get_quantity() == 5
-    assert product.is_active() is True
+    # Use property setter
+    product.quantity = 5
+    # Use properties for checks
+    assert product.quantity == 5
+    assert product.active is True
 
-    # Test setting negative quantity via set_quantity
-    with pytest.raises(ValueError, match="Quantity cannot be negative"):
-        product.set_quantity(-1)
+    # Test setting negative quantity via property setter
+    with pytest.raises(ValueError, match="Quantity cannot be negative."):
+        product.quantity = -1
 

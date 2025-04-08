@@ -1,10 +1,9 @@
 # main.py
 import products
 import store
-import promotions # Keep promotions import if needed, though test code doesn't use it directly
+# promotions import moved to setup_store function
 
 # The start() function remains the same as before, allowing menu interaction
-# if you want to test manually after the specific bonus tests.
 def start(store_instance: store.Store):
     """
     Starts the main loop for user interaction with the store.
@@ -33,8 +32,7 @@ def start(store_instance: store.Store):
                     print("Der Laden hat derzeit keine aktiven Produkte.")
                 else:
                     for i, product in enumerate(active_products):
-                        # Now uses __str__ implicitly via print()
-                        print(f"{i + 1}. {product}") # Use print(product) directly
+                        print(f"{i + 1}. {product}")
                 print("------")
 
             # --- Option 2: Show total quantity ---
@@ -45,7 +43,6 @@ def start(store_instance: store.Store):
                 print("------")
 
             # --- Option 3: Make an order ---
-            # (Order logic remains the same, uses updated Product/Store methods)
             elif choice == '3':
                 print("------")
                 active_products = store_instance.get_all_products()
@@ -55,7 +52,7 @@ def start(store_instance: store.Store):
                     continue
 
                 for i, product in enumerate(active_products):
-                     print(f"{i + 1}. {product}") # Uses __str__
+                     print(f"{i + 1}. {product}")
                 print("------")
                 print("Wenn Sie die Bestellung abschließen möchten, geben Sie leeren Text ein.")
 
@@ -79,18 +76,22 @@ def start(store_instance: store.Store):
                                 print("Die Menge muss positiv sein.")
                         else:
                             print("Ungültige Produktnummer.")
-                    except ValueError:
-                        print("Ungültige Eingabe.")
-                    except IndexError:
-                         print("Ungültige Produktnummer.")
+                    # Renamed exception variable 'e' to 've' to avoid shadowing
+                    except ValueError as ve:
+                        print(f"Ungültige Eingabe: {ve}")
+                    # Renamed exception variable 'e' to 'ie' to avoid shadowing
+                    except IndexError as ie:
+                         # This specific error message might not be needed if the index check above works
+                         print(f"Fehler bei Produktindex: {ie}")
 
                 if shopping_list:
                     print("********")
                     try:
                         total_cost = store_instance.order(shopping_list)
                         print(f"Bestellung aufgegeben! Gesamtbetrag: ${total_cost:.2f}")
-                    except Exception as e:
-                        print(f"Fehler bei der Bestellung: {e}")
+                    # Renamed inner exception variable 'e' to 'order_ex' to avoid shadowing
+                    except Exception as order_ex:
+                        print(f"Fehler bei der Bestellung: {order_ex}")
                     print("********")
                 else:
                     print("Bestellvorgang abgebrochen.")
@@ -105,58 +106,49 @@ def start(store_instance: store.Store):
             else:
                 print("Ungültige Auswahl. Bitte wählen Sie eine Nummer von 1 bis 4.")
 
-        except Exception as e:
-            print(f"Ein unerwarteter Fehler ist aufgetreten: {e}")
+        # Renamed outer exception variable 'e' to 'menu_ex' to avoid shadowing
+        except Exception as menu_ex:
+            print(f"Ein unerwarteter Fehler im Menü ist aufgetreten: {menu_ex}")
 
 
-# --- Main execution block: UPDATED FOR BONUS STEP TESTING ---
+def setup_store() -> store.Store:
+    """Sets up the initial store inventory and promotions."""
+    # Import promotions only where needed
+    import promotions
+
+    # Setup initial inventory with different product types
+    product_list = [ products.Product("MacBook Air M2", price=1450, quantity=100),
+                     products.Product("Bose QuietComfort Earbuds", price=250, quantity=500),
+                     products.Product("Google Pixel 7", price=500, quantity=250),
+                     products.NonStockedProduct("Windows License", price=125),
+                     products.LimitedProduct("Shipping", price=10, quantity=250, maximum=1)
+                   ]
+
+    # Create promotion catalog
+    second_half_price = promotions.SecondHalfPrice("Second Half price!")
+    third_one_free = promotions.ThirdOneFree("Third One Free!")
+    thirty_percent = promotions.PercentDiscount("30% off!", percent=30)
+
+    # Add promotions to products
+    product_list[0].promotion = second_half_price  # MacBook
+    product_list[1].promotion = third_one_free     # Bose
+    product_list[3].promotion = thirty_percent     # Windows License
+
+    # Create and return the Store instance
+    return store.Store(product_list)
+
+
+# --- Main execution block: Now calls setup function ---
 if __name__ == "__main__":
-    print("--- Testing Bonus Features ---")
+    print("--- Best Buy Store 2.0 ---")
     try:
-        # Setup products
-        mac = products.Product("MacBook Air M2", price=1450, quantity=100)
-        bose = products.Product("Bose QuietComfort Earbuds", price=250, quantity=500)
-        # Test code from assignment used 'maximum=1' which implies LimitedProduct,
-        # but didn't instantiate it as such. Let's create a standard product
-        # as the test focuses on price comparison and store operations here.
-        pixel = products.Product("Google Pixel 7", price=500, quantity=250)
+        # Get the initialized store from the setup function
+        best_buy = setup_store()
+        # Start the user interface
+        start(best_buy)
 
-        # Test setting price via property (should fail for negative)
-        print("\nTesting price property setter (negative value):")
-        try:
-            mac.price = -100
-            print("ERROR: Setting negative price did not raise exception!")
-        except ValueError as e:
-            print(f"OK: Caught expected error: {e}")
-
-        # Test __str__ magic method
-        print("\nTesting __str__ (print product):")
-        print(mac) # Should print product info via __str__
-
-        # Test comparison magic methods
-        print("\nTesting comparison (mac > bose):")
-        print(mac > bose) # Should print True
-
-        # Test Store __contains__ magic method
-        print("\nTesting 'in' operator (Store __contains__):")
-        best_buy = store.Store([mac, bose])
-        print(f"Is mac in best_buy? {mac in best_buy}")   # Should print True
-        print(f"Is pixel in best_buy? {pixel in best_buy}") # Should print False
-
-        # Test Store __add__ magic method
-        print("\nTesting '+' operator (Store __add__):")
-        other_store = store.Store([pixel])
-        combined_store = best_buy + other_store
-        print(f"Products in combined store ({len(combined_store.products)} items):")
-        # Optionally print products in combined store
-        # for prod in combined_store.products:
-        #    print(f"- {prod}")
-
-        print("\n--- Bonus Feature Testing Complete ---")
-
-        # Optional: Start the interactive menu with the original 'best_buy' store
-        # print("\n--- Starting Menu with Original Store ---")
-        # start(best_buy) # Uncomment if you want to run the menu after tests
-
+    # Keep 'e' here, as it's the top-level exception handler for setup
     except Exception as e:
-        print(f"An error occurred during bonus testing: {e}")
+        # Catch potential errors during setup
+        print(f"Ein Fehler ist beim Initialisieren des Shops aufgetreten: {e}")
+

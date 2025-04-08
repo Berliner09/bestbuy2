@@ -25,7 +25,7 @@ class Product:
 
     @price.setter
     def price(self, value: float):
-        """Sets the product price, ensuring it's non-negative."""
+        """Sets the product price, ensuring its non-negative.""" # Corrected: it's -> its
         if value < 0:
             raise ValueError("Product price cannot be negative.")
         self._price = value
@@ -184,3 +184,4 @@ class LimitedProduct(Product):
 
         # Add limit info and re-append promo info
         return f"{base_info} (Max per purchase: {self.maximum}){promo_part}"
+
