@@ -1,212 +1,186 @@
 # products.py
-# Import the promotions module and Optional type hint
 import promotions
-from typing import Optional
+from typing import Optional, Any # Added Any for comparison type hint
 
 class Product:
     """
-    Represents a standard product in the store with name, price, quantity,
-    active status, and an optional promotion.
+    Represents a product using properties and magic methods.
     """
 
     def __init__(self, name: str, price: float, quantity: int):
-        """
-        Initializes a new Product instance.
-
-        Args:
-            name (str): The name of the product. Cannot be empty.
-            price (float): The price of the product. Must be non-negative.
-            quantity (int): The initial quantity of the product. Must be non-negative.
-
-        Raises:
-            ValueError: If name is empty, or price/quantity are negative.
-        """
+        """Initializes a Product instance."""
         if not name:
             raise ValueError("Product name cannot be empty.")
-        if price < 0:
-            raise ValueError("Product price cannot be negative.")
-        if quantity < 0:
-            raise ValueError("Product quantity cannot be negative.")
-
-        self.name = name
+        # Use setters for initial validation and setup
+        self.name = name # Keep name as a direct attribute for simplicity
         self.price = price
-        self.quantity = quantity
-        self.active = (quantity > 0)
-        # Add promotion attribute, initially None
-        self.promotion: Optional[promotions.Promotion] = None
+        self.quantity = quantity # This will also set initial active status via the setter
+        self._promotion: Optional[promotions.Promotion] = None # Internal storage for promotion
 
-    # --- Promotion Methods ---
-    def get_promotion(self) -> Optional[promotions.Promotion]:
-        """Returns the current promotion applied to the product, or None."""
-        return self.promotion
+    # --- Price Property ---
+    @property
+    def price(self) -> float:
+        """Gets the product price."""
+        return self._price
 
-    def set_promotion(self, promotion: Optional[promotions.Promotion]):
-        """Sets or removes the promotion for the product."""
-        if promotion is not None and not isinstance(promotion, promotions.Promotion):
-            raise TypeError("Invalid promotion type provided.")
-        self.promotion = promotion
+    @price.setter
+    def price(self, value: float):
+        """Sets the product price, ensuring it's non-negative."""
+        if value < 0:
+            raise ValueError("Product price cannot be negative.")
+        self._price = value
 
-    # --- Existing Methods (potentially updated) ---
-    def get_quantity(self) -> int:
-        """Returns the current quantity."""
-        return self.quantity
+    # --- Quantity Property (also manages active status) ---
+    @property
+    def quantity(self) -> int:
+        """Gets the product quantity."""
+        return self._quantity
 
-    def set_quantity(self, quantity: int):
-        """Sets the quantity and updates active status."""
-        if quantity < 0:
+    @quantity.setter
+    def quantity(self, value: int):
+        """Sets the product quantity and updates active status accordingly."""
+        if value < 0:
             raise ValueError("Quantity cannot be negative.")
-        self.quantity = quantity
-        self.active = (self.quantity > 0)
+        self._quantity = value
+        # Automatically update active status based on quantity
+        self._active = (self._quantity > 0)
 
-    def is_active(self) -> bool:
-        """Checks if the product is currently active."""
-        return self.active
+    # --- Active Property (Read-Only) ---
+    @property
+    def active(self) -> bool:
+        """Gets the active status (derived from quantity > 0)."""
+        # Note: The _active attribute is managed by the quantity setter
+        return self._active
 
-    def activate(self):
-        """Activates the product."""
-        self.active = True
+    # --- Promotion Property ---
+    @property
+    def promotion(self) -> Optional[promotions.Promotion]:
+        """Gets the current promotion."""
+        return self._promotion
 
-    def deactivate(self):
-        """Deactivates the product."""
-        self.active = False
+    @promotion.setter
+    def promotion(self, value: Optional[promotions.Promotion]):
+        """Sets or removes the promotion."""
+        if value is not None and not isinstance(value, promotions.Promotion):
+            raise TypeError("Invalid promotion type provided.")
+        self._promotion = value
 
-    def show(self) -> str:
-        """Returns a string representation including promotion info if available."""
+    # --- Magic Methods ---
+    def __str__(self) -> str:
+        """Returns a user-friendly string representation."""
         base_info = f"{self.name}, Price: ${self.price}, Quantity: {self.quantity}"
         if self.promotion:
             base_info += f" (Promotion: {self.promotion.name})"
         return base_info
 
+    def __lt__(self, other: Any) -> bool:
+        """Compares product price using < operator."""
+        if not isinstance(other, Product):
+            return NotImplemented # Indicate comparison is not supported
+        return self.price < other.price
+
+    def __gt__(self, other: Any) -> bool:
+        """Compares product price using > operator."""
+        if not isinstance(other, Product):
+            return NotImplemented
+        return self.price > other.price
+
+    # --- Buy Method (uses properties internally) ---
     def buy(self, quantity: int) -> float:
-        """
-        Processes the purchase, applying promotion if available.
-
-        Args:
-            quantity (int): The quantity to buy. Must be positive.
-
-        Returns:
-            float: The total price for the purchased quantity (potentially discounted).
-
-        Raises:
-            ValueError: If quantity is invalid (<= 0).
-            Exception: If product is inactive.
-            Exception: If not enough stock.
-        """
+        """Processes purchase, applying promotions if available."""
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
 
-        if not self.is_active():
+        # Use the 'active' property for the check
+        if not self.active:
              raise Exception(f"Cannot buy '{self.name}', product is inactive.")
 
+        # Use the 'quantity' property for the check
         if self.quantity < quantity:
             raise Exception(f"Not enough stock for '{self.name}'. Available: {self.quantity}, Requested: {quantity}")
 
-        # Calculate price: Use promotion if available
+        # Calculate price using promotion property
         if self.promotion:
             total_price = self.promotion.apply_promotion(self, quantity)
         else:
-            total_price = self.price * quantity
+            total_price = self.price * quantity # Use price property
 
-        # Update quantity AFTER price calculation and checks
-        new_quantity = self.quantity - quantity
-        self.set_quantity(new_quantity)
+        # Update quantity using the property setter (which also updates active status)
+        self.quantity -= quantity
 
         return total_price
 
-# --- Inherited Classes (Potentially updated for promotion display) ---
+# --- Inherited Classes (Updated to use properties and __str__) ---
 
 class NonStockedProduct(Product):
-    """
-    Represents a non-stocked product. Quantity is always 0.
-    Can have promotions applied.
-    """
+    """Non-stocked product using properties."""
     def __init__(self, name: str, price: float):
+        # Initialize with quantity 0, price setter handles validation
         super().__init__(name, price, 0)
-        self.active = True # Always active for purchase
+        # Non-stocked are always considered active for purchase, override status set by quantity setter
+        self._active = True
 
-    def set_quantity(self, quantity: int):
-        """Overrides set_quantity to prevent changing the quantity."""
-        pass # Do nothing
+    @property
+    def quantity(self) -> int:
+        """Quantity is always 0."""
+        return 0 # Override getter
+
+    @quantity.setter
+    def quantity(self, value: int):
+        """Prevent setting quantity."""
+        pass # Do nothing, quantity stays 0
+
+    # Active property override (always True)
+    @property
+    def active(self) -> bool:
+        return True
 
     def buy(self, quantity: int) -> float:
-        """
-        Processes the 'purchase', applying promotion if available.
-        Quantity doesn't change.
-
-        Args:
-            quantity (int): The quantity to 'buy'. Must be positive.
-
-        Returns:
-            float: The total price (potentially discounted).
-
-        Raises:
-            ValueError: If quantity is invalid (<= 0).
-        """
+        """Processes 'purchase', applies promotion."""
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
-
-        # Calculate price: Use promotion if available
+        # Calculate price using promotion property
         if self.promotion:
             total_price = self.promotion.apply_promotion(self, quantity)
         else:
-            total_price = self.price * quantity
-
-        # No quantity update needed
+            total_price = self.price * quantity # Use price property
+        # No quantity update
         return total_price
 
-    def show(self) -> str:
-        """Returns a string representation including promotion info."""
+    def __str__(self) -> str:
+        """String representation for non-stocked product."""
         base_info = f"{self.name}, Price: ${self.price} (Non-Stocked)"
         if self.promotion:
             base_info += f" (Promotion: {self.promotion.name})"
         return base_info
 
 class LimitedProduct(Product):
-    """
-    Represents a product with a maximum purchase quantity per transaction.
-    Can have promotions applied.
-    """
+    """Limited product using properties."""
     def __init__(self, name: str, price: float, quantity: int, maximum: int):
         super().__init__(name, price, quantity)
         if maximum <= 0:
             raise ValueError("Maximum purchase quantity must be positive.")
-        self.maximum = maximum
+        self.maximum = maximum # Keep maximum as a direct attribute
 
     def buy(self, quantity: int) -> float:
-        """
-        Processes the purchase, checking limit first, then applying promotion via super().buy().
-
-        Args:
-            quantity (int): The quantity to buy. Must be positive and <= maximum.
-
-        Returns:
-            float: The total price (potentially discounted).
-
-        Raises:
-            ValueError: If quantity is invalid (<= 0).
-            Exception: If quantity exceeds the maximum limit.
-            Exception: If product is inactive or not enough stock (from super().buy).
-        """
+        """Processes purchase, checking limit first."""
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
-
         if quantity > self.maximum:
             raise Exception(f"Cannot buy {quantity} of '{self.name}'. Maximum allowed is {self.maximum}.")
-
-        # If limit is okay, call the parent buy method which now handles promotions
+        # Call parent buy method (which uses properties and handles promotions)
         return super().buy(quantity)
 
-    def show(self) -> str:
-        """Returns a string representation including limit and promotion info."""
-        # Call parent show() which includes base info + promotion
-        base_info = super().show()
-        # Find where the promotion info might start to insert the limit info correctly
+    def __str__(self) -> str:
+        """String representation including limit and promotion."""
+        # Get base string from parent (includes name, price, quantity, promotion)
+        base_info = super().__str__()
+        # Find where promotion info starts (if it exists) to insert limit info
         promo_part = ""
         if self.promotion:
             promo_part = f" (Promotion: {self.promotion.name})"
-            # Remove the promotion part temporarily from base_info if it exists
             if base_info.endswith(promo_part):
-                 base_info = base_info[:-len(promo_part)]
+                base_info = base_info[:-len(promo_part)] # Remove promo temporarily
 
-        # Add the limit info and then add the promotion info back
+        # Add limit info and re-append promo info
         return f"{base_info} (Max per purchase: {self.maximum}){promo_part}"
