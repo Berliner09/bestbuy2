@@ -1,9 +1,12 @@
 # products.py
+# Import the promotions module and Optional type hint
+import promotions
+from typing import Optional
 
 class Product:
     """
     Represents a standard product in the store with name, price, quantity,
-    and active status.
+    active status, and an optional promotion.
     """
 
     def __init__(self, name: str, price: float, quantity: int):
@@ -28,31 +31,32 @@ class Product:
         self.name = name
         self.price = price
         self.quantity = quantity
-        # A new product is active by default, unless quantity is 0 initially
         self.active = (quantity > 0)
+        # Add promotion attribute, initially None
+        self.promotion: Optional[promotions.Promotion] = None
 
+    # --- Promotion Methods ---
+    def get_promotion(self) -> Optional[promotions.Promotion]:
+        """Returns the current promotion applied to the product, or None."""
+        return self.promotion
+
+    def set_promotion(self, promotion: Optional[promotions.Promotion]):
+        """Sets or removes the promotion for the product."""
+        if promotion is not None and not isinstance(promotion, promotions.Promotion):
+            raise TypeError("Invalid promotion type provided.")
+        self.promotion = promotion
+
+    # --- Existing Methods (potentially updated) ---
     def get_quantity(self) -> int:
         """Returns the current quantity."""
         return self.quantity
 
     def set_quantity(self, quantity: int):
-        """
-        Sets the quantity of the product.
-
-        If the new quantity is 0 or less, the product is deactivated.
-        If the new quantity is positive, the product is activated.
-
-        Args:
-            quantity (int): The new quantity. Must be non-negative.
-
-        Raises:
-            ValueError: If the provided quantity is negative.
-        """
+        """Sets the quantity and updates active status."""
         if quantity < 0:
             raise ValueError("Quantity cannot be negative.")
-
         self.quantity = quantity
-        self.active = (self.quantity > 0) # Update active status based on quantity
+        self.active = (self.quantity > 0)
 
     def is_active(self) -> bool:
         """Checks if the product is currently active."""
@@ -60,9 +64,6 @@ class Product:
 
     def activate(self):
         """Activates the product."""
-        # We might want activation to depend on quantity > 0 as well
-        # For now, let's keep the simple activation flag logic
-        # but set_quantity handles the quantity-based activation/deactivation
         self.active = True
 
     def deactivate(self):
@@ -70,114 +71,102 @@ class Product:
         self.active = False
 
     def show(self) -> str:
-        """Returns a string representation of the product."""
-        return f"{self.name}, Price: ${self.price}, Quantity: {self.quantity}"
+        """Returns a string representation including promotion info if available."""
+        base_info = f"{self.name}, Price: ${self.price}, Quantity: {self.quantity}"
+        if self.promotion:
+            base_info += f" (Promotion: {self.promotion.name})"
+        return base_info
 
     def buy(self, quantity: int) -> float:
         """
-        Processes the purchase of a given quantity of the product.
+        Processes the purchase, applying promotion if available.
 
         Args:
             quantity (int): The quantity to buy. Must be positive.
 
         Returns:
-            float: The total price for the purchased quantity.
+            float: The total price for the purchased quantity (potentially discounted).
 
         Raises:
-            ValueError: If the requested quantity is invalid (<= 0).
-            Exception: If the product is inactive (and quantity > 0).
-                       Note: We allow buying 0 quantity of inactive items, maybe? Let's stick to raising error if inactive.
-            Exception: If there is not enough stock.
+            ValueError: If quantity is invalid (<= 0).
+            Exception: If product is inactive.
+            Exception: If not enough stock.
         """
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
 
-        # Check if active *before* checking quantity, standard products must be active to be bought
         if not self.is_active():
              raise Exception(f"Cannot buy '{self.name}', product is inactive.")
 
         if self.quantity < quantity:
             raise Exception(f"Not enough stock for '{self.name}'. Available: {self.quantity}, Requested: {quantity}")
 
-        total_price = self.price * quantity
+        # Calculate price: Use promotion if available
+        if self.promotion:
+            total_price = self.promotion.apply_promotion(self, quantity)
+        else:
+            total_price = self.price * quantity
+
+        # Update quantity AFTER price calculation and checks
         new_quantity = self.quantity - quantity
-        self.set_quantity(new_quantity) # Updates quantity and active status
+        self.set_quantity(new_quantity)
 
         return total_price
 
-# --- New Inherited Classes ---
+# --- Inherited Classes (Potentially updated for promotion display) ---
 
 class NonStockedProduct(Product):
     """
-    Represents a product that doesn't have a physical stock (e.g., software license).
-    Quantity is always considered 0 and it's always active for purchase.
+    Represents a non-stocked product. Quantity is always 0.
+    Can have promotions applied.
     """
     def __init__(self, name: str, price: float):
-        """
-        Initializes a NonStockedProduct. Quantity is fixed at 0.
-
-        Args:
-            name (str): The name of the product.
-            price (float): The price of the product.
-        """
-        # Call the parent constructor, but force quantity to 0
         super().__init__(name, price, 0)
-        # Non-stocked products are always considered 'purchasable', so set active=True
-        # even though quantity is 0. This overrides the logic in the parent __init__.
-        self.active = True
+        self.active = True # Always active for purchase
 
     def set_quantity(self, quantity: int):
         """Overrides set_quantity to prevent changing the quantity."""
-        # Do nothing, quantity always stays 0 for NonStockedProduct
-        # We could also raise an error here if desired:
-        # raise TypeError("Cannot set quantity for NonStockedProduct")
-        pass # Keep quantity at 0
+        pass # Do nothing
 
     def buy(self, quantity: int) -> float:
         """
-        Processes the 'purchase' of a non-stocked item.
-        Quantity doesn't decrease, just calculates price.
+        Processes the 'purchase', applying promotion if available.
+        Quantity doesn't change.
 
         Args:
             quantity (int): The quantity to 'buy'. Must be positive.
 
         Returns:
-            float: The total price for the purchased quantity.
+            float: The total price (potentially discounted).
 
         Raises:
-            ValueError: If the requested quantity is invalid (<= 0).
+            ValueError: If quantity is invalid (<= 0).
         """
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
 
-        # No stock check needed, no quantity update needed.
-        # Always active, so no active check needed either.
-        total_price = self.price * quantity
+        # Calculate price: Use promotion if available
+        if self.promotion:
+            total_price = self.promotion.apply_promotion(self, quantity)
+        else:
+            total_price = self.price * quantity
+
+        # No quantity update needed
         return total_price
 
     def show(self) -> str:
-        """Returns a string representation indicating it's non-stocked."""
-        # Get the base representation from the parent class
-        # base_info = super().show() # This would show Quantity: 0
-        # return f"{base_info} (Non-Stocked)"
-        # Or create a custom string without quantity:
-        return f"{self.name}, Price: ${self.price} (Non-Stocked)"
+        """Returns a string representation including promotion info."""
+        base_info = f"{self.name}, Price: ${self.price} (Non-Stocked)"
+        if self.promotion:
+            base_info += f" (Promotion: {self.promotion.name})"
+        return base_info
 
 class LimitedProduct(Product):
     """
-    Represents a product that can only be purchased up to a maximum
-    quantity per single purchase transaction.
+    Represents a product with a maximum purchase quantity per transaction.
+    Can have promotions applied.
     """
     def __init__(self, name: str, price: float, quantity: int, maximum: int):
-        """
-        Initializes a LimitedProduct.
-
-        Args:
-            name (str): The name of the product.
-            price (float): The price of the product.
-            quantity (int): The initial quantity of the product.
-            maximum (int): The maximum allowed quantity per purchase. Must be positive.
-        """
         super().__init__(name, price, quantity)
         if maximum <= 0:
             raise ValueError("Maximum purchase quantity must be positive.")
@@ -185,33 +174,39 @@ class LimitedProduct(Product):
 
     def buy(self, quantity: int) -> float:
         """
-        Processes the purchase, checking against the maximum limit first.
+        Processes the purchase, checking limit first, then applying promotion via super().buy().
 
         Args:
             quantity (int): The quantity to buy. Must be positive and <= maximum.
 
         Returns:
-            float: The total price for the purchased quantity.
+            float: The total price (potentially discounted).
 
         Raises:
             ValueError: If quantity is invalid (<= 0).
-            Exception: If quantity exceeds the maximum allowed limit.
+            Exception: If quantity exceeds the maximum limit.
             Exception: If product is inactive or not enough stock (from super().buy).
         """
         if quantity <= 0:
             raise ValueError("Quantity to buy must be positive.")
 
-        # Check the purchase limit specific to this class
         if quantity > self.maximum:
             raise Exception(f"Cannot buy {quantity} of '{self.name}'. Maximum allowed is {self.maximum}.")
 
-        # If limit is okay, proceed with the normal buy logic (stock check, quantity update)
-        # by calling the parent class's buy method.
+        # If limit is okay, call the parent buy method which now handles promotions
         return super().buy(quantity)
 
     def show(self) -> str:
-        """Returns a string representation including the purchase limit."""
-        # Get the base representation from the parent class
+        """Returns a string representation including limit and promotion info."""
+        # Call parent show() which includes base info + promotion
         base_info = super().show()
-        return f"{base_info} (Max per purchase: {self.maximum})"
+        # Find where the promotion info might start to insert the limit info correctly
+        promo_part = ""
+        if self.promotion:
+            promo_part = f" (Promotion: {self.promotion.name})"
+            # Remove the promotion part temporarily from base_info if it exists
+            if base_info.endswith(promo_part):
+                 base_info = base_info[:-len(promo_part)]
 
+        # Add the limit info and then add the promotion info back
+        return f"{base_info} (Max per purchase: {self.maximum}){promo_part}"

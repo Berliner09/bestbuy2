@@ -1,6 +1,7 @@
 # main.py
-import products # Import the module with the Product class
-import store    # Import the module with the Store class
+import products # Importiert das Modul mit der Product-Klasse
+import store    # Importiert das Modul mit der Store-Klasse
+import promotions # Importiert das Modul mit den Promotion-Klassen
 
 def start(store_instance: store.Store):
     """
@@ -31,6 +32,7 @@ def start(store_instance: store.Store):
                 else:
                     for i, product in enumerate(active_products):
                         # Display product with index + 1 (user-friendly)
+                        # Uses the show() method which now includes promotion info
                         print(f"{i + 1}. {product.show()}")
                 print("------")
 
@@ -38,7 +40,7 @@ def start(store_instance: store.Store):
             elif choice == '2':
                 total_quantity = store_instance.get_total_quantity()
                 print("------")
-                print(f"Gesamtmenge aller Produkte im Laden: {total_quantity}")
+                print(f"Gesamtmenge aller lagernden Produkte im Laden: {total_quantity}")
                 print("------")
 
             # --- Option 3: Make an order ---
@@ -79,7 +81,6 @@ def start(store_instance: store.Store):
 
                             # Validate quantity (must be positive)
                             if amount > 0:
-                                # Add chosen product and quantity to the shopping list
                                 shopping_list.append((chosen_product, amount))
                                 print("Produkt zur Liste hinzugefügt!") # User message in German
                             else:
@@ -90,12 +91,13 @@ def start(store_instance: store.Store):
                     except ValueError:
                         print("Ungültige Eingabe. Bitte geben Sie Zahlen für Produktnummer und Menge ein.") # User message in German
                     except IndexError:
-                         print("Ungültige Produktnummer.") # Should be caught by the check above, but just in case
+                         print("Ungültige Produktnummer.")
 
                 # If the shopping list is not empty, try to place the order
                 if shopping_list:
                     print("********")
                     try:
+                        # store.order() uses product.buy(), which now applies promotions!
                         total_cost = store_instance.order(shopping_list)
                         print(f"Bestellung aufgegeben! Gesamtbetrag: ${total_cost:.2f}") # User message in German
                     except Exception as e:
@@ -104,7 +106,6 @@ def start(store_instance: store.Store):
                 else:
                     print("Bestellvorgang abgebrochen.") # User message in German
                 print("------")
-
 
             # --- Option 4: Quit ---
             elif choice == '4':
@@ -122,24 +123,35 @@ def start(store_instance: store.Store):
 
 # --- Main execution block ---
 if __name__ == "__main__":
-    # Setup initial inventory
+    # Setup initial inventory - Same as Step 2 test
     try:
         product_list = [ products.Product("MacBook Air M2", price=1450, quantity=100),
                          products.Product("Bose QuietComfort Earbuds", price=250, quantity=500),
-                         products.Product("Google Pixel 7", price=500, quantity=250)
+                         products.Product("Google Pixel 7", price=500, quantity=250),
+                         products.NonStockedProduct("Windows License", price=125),
+                         products.LimitedProduct("Shipping", price=10, quantity=250, maximum=1)
                        ]
-        # Create the Store instance
+
+        # Create promotion catalog - NEW for Step 3 test
+        second_half_price = promotions.SecondHalfPrice("Second Half price!")
+        third_one_free = promotions.ThirdOneFree("Third One Free!")
+        thirty_percent = promotions.PercentDiscount("30% off!", percent=30)
+
+        # Add promotions to products - NEW for Step 3 test
+        # Note: Indices match the order in product_list above
+        product_list[0].set_promotion(second_half_price)  # MacBook
+        product_list[1].set_promotion(third_one_free)     # Bose
+        product_list[3].set_promotion(thirty_percent)     # Windows License (index 3)
+
+        # Create the Store instance with the modified product list
         best_buy = store.Store(product_list)
 
         # Start the user interface
         start(best_buy)
 
     except ValueError as ve:
-         # Error during product initialization
-         print(f"Fehler beim Initialisieren der Produkte: {ve}") # Error message in German
+         print(f"Fehler beim Initialisieren der Produkte/Promotions: {ve}") # Error message in German
     except TypeError as te:
-         # Error during store initialization
-         print(f"Fehler beim Initialisieren des Stores: {te}") # Error message in German
+         print(f"Fehler beim Initialisieren des Stores/Promotions: {te}") # Error message in German
     except Exception as ex:
-         # Any other unexpected error during startup
          print(f"Ein unerwarteter Fehler beim Starten des Programms ist aufgetreten: {ex}") # Error message in German
